@@ -108,15 +108,25 @@ StatusCode RootEvtSelector::initialize()     {
     log << MSG::WARNING << "could not get the TagFilterSvc. Ignore it." << endreq;
   }
 
+  //Edited by chengzj
+  vector<string> dstFiles = m_tagFilterSvc->getDstFiles();
+
   m_rootInterface->setTagInputFile(m_tagFilterSvc->getTagFiles());
 
-  vector<string> dstFiles = m_tagFilterSvc->getDstFiles();
   int size = dstFiles.size();
   std::string treeName="Event";
 
+  std::string tempFile="";//Edited by chengzj
   for(int i=0;i<size;i++)
   {
-    std::cout<<"RootEvtSelector, dstFile: "<<dstFiles[i]<<std::endl;
+    if((m_rootInterface->getTagInputFile())[i].find(".json",0)!=-1){//Edited by chengzj
+      if(tempFile!=dstFiles[i]){
+        std::cout<<"RootEvtSelector, dstFile: "<<dstFiles[i]<<std::endl;
+        tempFile=dstFiles[i];
+      }
+    }else{
+      std::cout<<"RootEvtSelector, dstFile: "<<dstFiles[i]<<std::endl;
+    }
     m_rootInterface->addInput(treeName, dstFiles[i].c_str());
   }
   return sc;
@@ -211,9 +221,9 @@ StatusCode RootEvtSelector::createAddress(const IEvtSelector::Context& /*it*/,
 
 void RootEvtSelector::getEntryFromTag() const {
   bool flag=true;;
+  static bool force=false;
   MsgStream log(messageService(), name());
   static std::string tempFile = "";
-  log << MSG::DEBUG <<"current file: "<<m_rootInterface->getCurrentFileName()<<endreq;
   std::ifstream fin;
   static std::string tagFile;
   static int i=-1;
@@ -222,8 +232,12 @@ void RootEvtSelector::getEntryFromTag() const {
   int num2 = m_rootInterface->getTotalFileNum();
 
 
-  if(tempFile != m_rootInterface->getCurrentFileName())
+  //if(tempFile != m_rootInterface->getCurrentFileName())//old code
+  if(tempFile != m_rootInterface->getCurrentFileName()||force==true)//Edited by chengzj
   {
+    if(force==true){
+      force = false;
+    }
     tempFile = m_rootInterface->getCurrentFileName();
     log << MSG::DEBUG<<"temp file: "<<tempFile<<endreq;
     i=-1;
@@ -252,6 +266,20 @@ void RootEvtSelector::getEntryFromTag() const {
   if( (i>(vs-1)) && (num1<(num2-1)))
   {
     bool endAll = m_rootInterface->checkEndOfTree();
+    if(tagFile.find(".json",0)!=-1){
+      int temp_i = 0;
+      while(tempFile == m_rootInterface->getCurrentFileName()){
+        m_rootInterface->getCurrentFileNum();
+        m_rootInterface->getTotalFileNum();
+        m_rootInterface->getCurrentFileName();
+        m_rootInterface->checkEndOfTree();
+        temp_i++;
+        if(temp_i>vs-1) {
+          force=true;
+          break;
+        }
+      }
+    }
     getEntryFromTag();
   }
   if( (i>(vs-1)) && (num1==(num2-1)))
@@ -345,12 +373,6 @@ StatusCode RootEvtSelector::getMaxEvent() {
   m_evtMax = evtMax.value();
   return status;
 }
-
-
-
-
-
-
 
 
 
